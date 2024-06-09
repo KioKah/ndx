@@ -2,35 +2,43 @@
     Hey
 """
 
-from typing import List, Union, Dict
+from typing import List, Tuple, Dict, Union, Callable, Iterable, Sequence
 from abc import ABC, abstractmethod
-from functools import reduce
 from itertools import product as cartesian_product
 import math
+import matplotlib.pyplot as plt
 
 from optimal_decomposition import OptimalDecomposition
 
-import matplotlib.pyplot as plt
 
-# from statistics import mean
-# from statistics import stdev
 # from colorsys import hsv_to_rgb
 
 
-class CounterArray:
+class CountArray:
     def __init__(self, data: List[int]):
         # Checks
         if not isinstance(data, List):
             raise TypeError("data must be a List")
-        if len(data) == 0:
+        size = len(data)
+        if size == 0:
             raise ValueError("data must not be empty")
         if not all(isinstance(value, int) for value in data):
             raise TypeError("data must be a List of ints")
         if not all(value >= 0 for value in data):
             raise ValueError("data values must be >= 0")
         # Init
-        self.data = data
-        self.size = len(data)
+        self.__data = data
+        self.__size = size
+
+    @property
+    def data(self) -> List[int]:
+        """Getter for `__data`"""
+        return self.__data
+
+    @property
+    def size(self) -> int:
+        """Getter for `__size`"""
+        return self.__size
 
     @staticmethod
     def zeros(length: int) -> List[int]:
@@ -42,7 +50,7 @@ class CounterArray:
         Returns:
             List[int]: A list of zeros of the given length.
         """
-        return CounterArray([0] * length)
+        return CountArray([0] * length)
 
     @staticmethod
     def ones(length: int) -> List[int]:
@@ -54,7 +62,7 @@ class CounterArray:
         Returns:
             List[int]: A list of ones of the given length.
         """
-        return CounterArray([1] * length)
+        return CountArray([1] * length)
 
     @staticmethod
     def single(value: int) -> List[int]:
@@ -67,141 +75,192 @@ class CounterArray:
         Returns:
             List[int]: A list containing the given value.
         """
-        return CounterArray([value])
+        return CountArray([value])
 
-    def lcm(self) -> int:
-        """Least common multiple of the counter_array
+    def reversed(self) -> "CountArray":
+        return CountArray(self.__data[::-1])
+
+    def total(self) -> int:
+        """Total count of the count_array
 
         Returns:
-            int: Least common multiple of the counter_array
+            int: Sum of the values from the count_array
         """
-        return math.lcm(*self.data)
+        return sum(self.__data)
 
     def gdc(self) -> int:
-        """Greatest common divisor of the counter_array
+        """Greatest common divisor of the count_array
 
         Returns:
-            int: Greatest common divisor of the counter_array
+            int: Greatest common divisor of the count_array
         """
-        return math.gcd(*self.data)
+        return math.gcd(*self.__data)
 
-    def prod(self) -> int:
-        """Product of the counter_array
+    def __getitem__(self, index: Union[int, slice]) -> Union[int, "CountArray"]:
+        if isinstance(index, slice):
+            return CountArray(self.__data[index])
+        if isinstance(index, int):
+            return self.__data[index]
+        raise TypeError("index must be an int or a slice")
 
-        Returns:
-            int: Product of the counter_array
-        """
-        return math.prod(self.data)
-
-    def __getitem__(self, index):
-        return self.data[index]
-
-    def __setitem__(self, index, value):
-        self.data[index] = value
-
-    def __repr__(self):
-        return f"Array({self.data})"
-
-    # TODO : Check if this is the right way to implement these operators
-    def __add__(self, other):
-        if isinstance(other, CounterArray):
-            return CounterArray([x + y for x, y in zip(self.data, other.data)])
+    def __setitem__(self, index: Union[int, slice], value: Union[int, "CountArray"]):
+        # Checks
+        if not isinstance(value, (int, CountArray)):
+            raise TypeError("value must be an int or a CountArray")
+        # SetItem
+        if isinstance(index, slice):
+            if isinstance(value, CountArray):
+                self.__data[index] = value.data
+            else:
+                self.__data[index] = value
+        elif isinstance(index, int):
+            self.__data[index] = value
         else:
-            return CounterArray([x + other for x in self.data])
+            raise TypeError("index must be an int or a slice")
+
+    # NOTE : Review 'CountArray operator CountArray' operations
+    def __add__(self, other):
+        if isinstance(other, CountArray):
+            return CountArray(
+                [x + y for x, y in zip(self.__data, other.data, strict=True)]
+            )
+        if isinstance(other, int):
+            return CountArray([x + other for x in self.__data])
+        raise TypeError("other must be a CountArray or an int")
 
     def __sub__(self, other):
-        if isinstance(other, CounterArray):
-            return CounterArray([x - y for x, y in zip(self.data, other.data)])
-        else:
-            return CounterArray([x - other for x in self.data])
+        if isinstance(other, CountArray):
+            return CountArray(
+                [x - y for x, y in zip(self.__data, other.data, strict=True)]
+            )
+        if isinstance(other, int):
+            return CountArray([x - other for x in self.__data])
+        raise TypeError("other must be a CountArray or an int")
 
     def __mul__(self, other):
-        if isinstance(other, CounterArray):
-            return CounterArray([x * y for x, y in zip(self.data, other.data)])
-        else:
-            return CounterArray([x * other for x in self.data])
+        if isinstance(other, CountArray):
+            return CountArray(
+                [x * y for x, y in zip(self.__data, other.data, strict=True)]
+            )
+        if isinstance(other, int):
+            return CountArray([x * other for x in self.__data])
+        raise TypeError("other must be a CountArray or an int")
 
-    # NOTE: Truediv has no place being here
-    def __truediv__(self, other):
-        if isinstance(other, CounterArray):
-            return CounterArray([x / y for x, y in zip(self.data, other.data)])
+    def __floordiv__(self, other):
+        if isinstance(other, CountArray):
+            return CountArray(
+                [x // y for x, y in zip(self.__data, other.data, strict=True)]
+            )
+        if isinstance(other, int):
+            return CountArray([x // other for x in self.__data])
+        raise TypeError("other must be a CountArray or an int")
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, CountArray):
+            return False
+        return self.__data == other.data
+
+    def __ne__(self, other) -> bool:
+        if not isinstance(other, CountArray):
+            return True
+        return self.__data != other.data
+
+    def __iadd__(self, other: Union["CountArray", int]):
+        if isinstance(other, CountArray):
+            if self.__size != other.size:
+                raise ValueError("CountArrays must have the same size")
+            for i in range(self.__size):
+                self.__data[i] += other[i]
+        elif isinstance(other, int):
+            for i in range(self.__size):
+                self.__data[i] += other
         else:
-            return CounterArray([x / other for x in self.data])
+            raise TypeError("other must be a CountArray or an int")
+
+    def __isub__(self, other: Union["CountArray", int]):
+        if isinstance(other, CountArray):
+            for i in range(self.__size):
+                if self.__size != other.size:
+                    raise ValueError("CountArrays must have the same size")
+                self.__data[i] -= other[i]
+        elif isinstance(other, int):
+            for i in range(self.__size):
+                self.__data[i] -= other
+        else:
+            raise TypeError("other must be a CountArray or an int")
+
+    def __imul__(self, other: Union["CountArray", int]):
+        if isinstance(other, CountArray):
+            for i in range(self.__size):
+                if self.__size != other.size:
+                    raise ValueError("CountArrays must have the same size")
+                self.__data[i] *= other[i]
+        elif isinstance(other, int):
+            for i in range(self.__size):
+                self.__data[i] *= other
+        else:
+            raise TypeError("other must be a CountArray or an int")
+
+    def __ifloordiv__(self, other: Union["CountArray", int]):
+        if isinstance(other, CountArray):
+            for i in range(self.__size):
+                if self.__size != other.size:
+                    raise ValueError("CountArrays must have the same size")
+                self.__data[i] //= other[i]
+        elif isinstance(other, int):
+            for i in range(self.__size):
+                self.__data[i] //= other
+        else:
+            raise TypeError("other must be a CountArray or an int")
+
+    def __str__(self):
+        return f"[{' '.join([str(x) for x in self.__data])}]"
+
+    def __repr__(self):
+        return f"CountArray({repr(self.__data)})"
 
 
 class Result:
-    """`Result(counter_array: List[int], starting_value: int = 1)`
+    """`Result(count_array: List[int], starting_value: int = 1)`
 
     Result of an Expression
 
     A Result is an array that counts the number of ways to obtain each value,
     offset by a starting_value - 1.
 
-    For example 2d6 gives the following counter_array:
+    For example 2d6 gives the following count_array:
     [1 2 3 4 5 6 5 4 3 2 1] with a starting_value of 2.
 
     Attributes:
-        `__counter_array` (List[int]) : Array of counts for each value
-        `__starting_value` (int) : Starting value of the counter_array
+        `__count_array` (List[int]) : Array of counts for each value
+        `__starting_value` (int) : Starting value of the count_array
         `__total_count` (int) : Total number of ways to obtain a value
-        `__lcm` (int) : Least common multiple of the counter_array
+        `__probabilities` (Dict[int, float]) : Values and probabilities of drawing each value
     """
 
     def __init__(
         self,
-        counter_array: CounterArray,
+        count_array: CountArray,
         starting_value: int = 1,
     ):
         # Checks
-        if not isinstance(counter_array, CounterArray):
-            raise TypeError("counter_array must be a CounterArray")
-        if counter_array.size > 0:
-            if not all(count >= 0 for count in counter_array):
-                raise ValueError("counter_array values must be >= 0")
-            # Init
-            lcm = counter_array.lcm()
-        else:
-            lcm = 1
-        self.__lcm = lcm
-        self.__counter_array = counter_array
+        if not isinstance(count_array, CountArray):
+            raise TypeError("count_array must be a CountArray")
+        if count_array.size > 0:
+            if not all(count >= 0 for count in count_array):
+                raise ValueError("count_array values must be >= 0")
+        # Init
+        self.__count_array = count_array
         self.__starting_value = starting_value
-        self.__total_count = sum(self.__counter_array)
-
-    def set_gcd_to_one(self):
-        """Set the greatest common divisor of the counter_array to 1
-
-        Divide each element of the counter_array by the greatest common divisor
-        of the counter_array to simplify the Result
-        """
-        if self.__counter_array.size == 0:
-            return
-        gcd = self.__counter_array.gdc()
-        if gcd != 1:
-            self.__counter_array //= gcd
-            self.__lcm //= gcd
-            self.__total_count //= gcd
-
-    def plot(self):
-        """Plot the counter_array"""
-        plt.bar(
-            range(
-                self.__starting_value, self.__starting_value + self.__counter_array.size
-            ),
-            self.__counter_array,
-        )
-        plt.show()
-        # TODO : Add title, labels, etc.
+        self.__total_count = count_array.total()
+        self.__probabilities = None
+        print(str(self))
 
     # Getters
     @property
-    def lcm(self) -> int:
-        """Getter for `__lcm`"""
-        return self.__lcm
-
-    @property
-    def counter_array(self) -> List[int]:
-        """Getter for `__counter_array`"""
-        return self.__counter_array
+    def count_array(self) -> CountArray:
+        """Getter for `__count_array`"""
+        return self.__count_array
 
     @property
     def starting_value(self) -> int:
@@ -213,6 +272,64 @@ class Result:
         """Getter for `__total_count`"""
         return self.__total_count
 
+    @property
+    def probabilities(self) -> Dict[int, float]:
+        """Getter for `__probabilities`"""
+        return self.__probabilities
+
+    # Main methods
+    def set_gcd_to_one(self):
+        """Set the greatest common divisor of the count_array to 1
+
+        Divide each element of the count_array by the greatest common divisor
+        of the count_array to simplify the Result
+        """
+        gcd = self.__count_array.gdc()
+        if gcd != 1:
+            self.__count_array //= gcd
+            self.__total_count //= gcd
+
+    def plot(self):
+        """Plot the count_array"""
+        plt.bar(
+            range(
+                self.__starting_value,
+                self.__starting_value + self.__count_array.size,
+            ),
+            self.__count_array,
+        )
+        plt.show()
+        # TODO : Add title, labels, etc.
+
+    def evaluate_probabilities(self) -> Dict[int, float]:
+        print(str(self))
+        return {
+            i + self.__starting_value: (count / self.__total_count)
+            for i, count in enumerate(self.__count_array)
+        }
+
+    def compute_probabilities(self) -> bool:
+        if self.__probabilities is None:
+            self.__probabilities = self.evaluate_probabilities()
+
+    def mean(self) -> float:
+        self.compute_probabilities()
+        return sum(
+            value * probability for value, probability in self.__probabilities.items()
+        )
+
+    def variance(self) -> float:
+        self.compute_probabilities()
+        variance_term = sum(
+            value**2 * probability
+            for value, probability in self.__probabilities.items()
+        )
+        variance = variance_term - (self.mean()) ** 2
+        return variance if variance >= 0 else 0.0
+
+    def stdev(self) -> float:
+        return math.sqrt(self.variance())
+
     # Static methods
     @staticmethod
     def zero(count: int = 1) -> "Result":
@@ -220,44 +337,27 @@ class Result:
         The "zero" of the Result class.
 
         Args:
-            `count` (int, optional): Value inside the counter_array. Defaults to 1.
+            `count` (int, optional): Value inside the count_array. Defaults to 1.
 
         Returns: (Result)
-            A Result with a counter_array with the given count, of size 1.
+            A Result with a count_array with the given count, of size 1.
         """
         if not isinstance(count, int):
             raise TypeError("count must be an int")
         if count < 1:
             raise ValueError("count must be > 0")
-        return Result(CounterArray.single(count), 0)
-
-    # @staticmethod
-    # def one(count: int = 1) -> "Result":
-    #     """The "one" of the Result class.
-
-    #     Args:
-    #         `count` (int, optional): Value inside the counter_array. Defaults to 1.
-
-    #     Returns: (Result)
-    #         A Result with a starting value of zero
-    #         and counter_array with the given count, of size 1.
-    #     """
-    #     if not isinstance(count, int):
-    #         raise TypeError("count must be an int")
-    #     if count < 1:
-    #         raise ValueError("count must be > 0")
-    #     return Result(Array.single(count), 1)
+        return Result(CountArray.single(count), 0)
 
     @staticmethod
-    def scaled_counter_array(result: "Result", factor: int) -> "Result":
-        """Gives the input Result with its counter_array scaled by a factor.
+    def scaled_count_array(result: "Result", factor: int) -> "Result":
+        """Gives the input Result with its count_array scaled by a factor.
 
         Args:
             `result` (Result): Input Result to scale
             `factor` (int): Scaling factor
 
         Returns: (Result)
-            A Result with the counter_array of the input Result scaled by the factor.
+            A Result with the count_array of the input Result scaled by the factor.
             Starting value is unchanged.
         """
         if not isinstance(factor, int):
@@ -266,7 +366,7 @@ class Result:
             raise ValueError("factor must be >= 0")
         if factor == 0:
             return Result.zero()
-        return Result(result.counter_array * factor, result.starting_value)
+        return Result(result.count_array * factor, result.starting_value)
 
     # Operations
     @staticmethod
@@ -293,7 +393,7 @@ class Result:
         lcm = math.lcm(*total_counts)
         equalizer = [lcm // total_count for total_count in total_counts]
         return [
-            Result.scaled_counter_array(result, factor)
+            Result.scaled_count_array(result, factor) if factor != 1 else result
             for result, factor in zip(results, equalizer)
         ]
 
@@ -306,9 +406,9 @@ class Result:
         """Fuse multiple Result objects into a single Result object.
 
         This method takes a list of Result objects and fuses them together into a
-        single Result object. The fusion process involves summing pairwise the counter arrays
-        of the Result objects, optionally applying weights to each counter array, and optionally
-        setting the greatest common divisor (GCD) of the resulting counter array to one.
+        single Result object. The fusion process involves summing pairwise the count arrays
+        of the Result objects, optionally applying weights to each count array, and optionally
+        setting the greatest common divisor (GCD) of the resulting count array to one.
 
         Args:
             `results` (List[Result]):
@@ -317,7 +417,7 @@ class Result:
                 A list of weights to be applied to each result.
                 If None, all results are weighted equally. Defaults to None.
             `set_gdc_to_one` (bool, optional):
-                Whether to set the GCD of the resulting counter array to one. Defaults to True.
+                Whether to set the GCD of the resulting count array to one. Defaults to True.
 
         Returns: (Result)
             The fused Result object.
@@ -338,42 +438,120 @@ class Result:
             raise TypeError("gdc_to_one must be a bool")
         # Fuse
         starting_value = min(result.starting_value for result in results)
-        length = (
-            max(result.starting_value + result.counter_array.size for result in results)
-            - starting_value
-            + 1
+        ending_value_plus_one = max(
+            result.starting_value + result.count_array.size for result in results
         )
-        counter_array = CounterArray.zeros(length)
+        length = ending_value_plus_one - starting_value
+        count_array = CountArray.zeros(length)
         for index, result in enumerate(results):
             weight = weights[index] if weights is not None else 1
-            for i, count in enumerate(result.counter_array):
+            for i, count in enumerate(result.count_array):
                 target = i + result.starting_value
-                counter_array[target - starting_value] += count * weight
-        fused_outcomes = Result(counter_array, starting_value)
+                count_array[target - starting_value] += count * weight
+        fused_outcomes = Result(count_array, starting_value)
         if set_gdc_to_one:
             fused_outcomes.set_gcd_to_one()
         return fused_outcomes
 
+    @staticmethod
+    def combinations(
+        starting_values: List[int], ending_values: List[int]
+    ) -> Iterable[Tuple[int]]:
+        """Generate combinations of values within specified ranges.
+
+        This method takes two lists of integers, starting_values and ending_values,
+        and generates all possible combinations of values within the specified ranges.
+
+        Args:
+            `starting_values` (List[int]): A list of starting values for each range.
+            `ending_values` (List[int]): A list of ending values for each range.
+
+        Returns:
+            Iterable[Tuple[int]]: An iterable of tuples representing the combinations
+            of values within the specified ranges.
+        """
+        list_of_ranges = [
+            range(starting_value, ending_value + 1)
+            for starting_value, ending_value in zip(starting_values, ending_values)
+        ]
+        return cartesian_product(*list_of_ranges)
+
+    # 'Too many local variables' pylint: disable=R0914
+    @staticmethod
+    def operation(
+        operation: Callable[[Sequence[int]], int],
+        results: List["Result"],
+        monotonous_increasing: bool = True,
+    ) -> "Result":
+        """Performs an operation on a list of results.
+
+        Args:
+            `operation` (Callable[[Sequence[int]], int]):
+                A callable that takes a sequence of integers and returns an integer.
+            `results` (List[Result]):
+                A list of Result objects.
+            `monotonous_increasing` (bool, optional):
+                A flag indicating whether the operation function is monotonously increasing or not.
+                Allows the starting and ending values to be calculated more efficiently if True.
+                Defaults to True.
+
+        Returns:
+            Result: The result of the operation.
+        """
+        # Checks
+        if not callable(operation):
+            raise TypeError("operation must be a Callable")
+        if not isinstance(results, List):
+            raise TypeError("results must be a List")
+        no_of_results = len(results)
+        if no_of_results == 0:
+            raise ValueError("results must not be empty")
+        if not all(isinstance(result, Result) for result in results):
+            raise TypeError("results must be a List of Result")
+        if not isinstance(monotonous_increasing, bool):
+            raise TypeError("monotonous_increasing must be a bool")
+        # Setup
+        if no_of_results == 1:
+            return results[0]
+
+        count_arrays: List[CountArray] = [result.count_array for result in results]
+        starting_values = [result.starting_value for result in results]
+        ending_values = [
+            result.starting_value + result.count_array.size for result in results
+        ]
+        combinations = Result.combinations(starting_values, ending_values)
+        # Operation
+        operated_combinations = [operation(combination) for combination in combinations]
+        if monotonous_increasing:
+            return_starting_value = operation(starting_values)
+            return_ending_value = operation(ending_values)
+        else:
+            return_starting_value = min(operated_combinations)
+            return_ending_value = max(operated_combinations)
+        return_count_array = CountArray.zeros(
+            return_ending_value - return_starting_value + 1
+        )
+        for operated_combination, combination in zip(
+            operated_combinations, combinations
+        ):
+            index = operated_combination - return_starting_value
+            return_count_array[index] += math.prod(
+                [
+                    count_array[combination[i] - starting_values[i]]
+                    for i, count_array in enumerate(count_arrays)
+                ]
+            )
+        return_result = Result(return_count_array, return_starting_value)
+        return_result.set_gcd_to_one()
+        return return_result
+
+    # Operations
     def __add__(self: "Result", other: "Result") -> "Result":
         # Checks
         if not isinstance(other, Result):
             raise TypeError("other must be an Result")
-        # Setup
-        s_counter_array = self.counter_array
-        o_counter_array = other.counter_array
-        s_length = s_counter_array.size
-        o_length = o_counter_array.size
         # Add
-        starting_value = self.starting_value + other.starting_value
-        if s_length == 1:
-            return Result(o_counter_array, starting_value)
-        if o_length == 1:
-            return Result(s_counter_array, starting_value)
-        counter_array = CounterArray.zeros(s_length + o_length - 1)
-        for s in range(s_length):
-            for o in range(o_length):
-                counter_array[s + o] += s_counter_array[s] * o_counter_array[o]
-        return Result(counter_array, starting_value)
+        return Result.operation(sum, [self, other])
 
     @staticmethod
     def sum(results: List["Result"]) -> "Result":
@@ -391,21 +569,17 @@ class Result:
         if not all(isinstance(result, Result) for result in results):
             raise TypeError("results must be a List of Result")
         # Sum
-        if len(results) == 0:
-            return Result.zero()
-        if len(results) == 1:
-            return results[0]
-        return reduce(lambda r1, r2: r1 + r2, results)
+        return Result.operation(sum, results)
 
     def __neg__(self: "Result") -> "Result":
         # Setup
-        counter_array = self.counter_array
-        length = counter_array.size
+        count_array = self.count_array
+        length = count_array.size
         # Neg
         if length < 2:
             return self
         return Result(
-            counter_array[::-1],
+            count_array.reversed(),
             -(length + self.starting_value - 1),
         )
 
@@ -416,69 +590,116 @@ class Result:
         # Sub
         return self + (-other)
 
+    def __mul__(self: "Result", other: "Result") -> "Result":
+        # Checks
+        if not isinstance(other, Result):
+            raise TypeError("other must be an int or an Result")
+        # Mul
+        return Result.operation(math.prod, [self, other], monotonous_increasing=False)
+
+    @staticmethod
+    def product(results: List["Result"]) -> "Result":
+        """Calculates the product of a list of Result objects.
+
+        Args:
+            `results` (List[Result]): A list of Result objects to be multiplied.
+
+        Returns: (Result)
+            The product of the Result objects.
+        """
+        # Checks
+        if not isinstance(results, List):
+            raise TypeError("results must be a List")
+        if not all(isinstance(result, Result) for result in results):
+            raise TypeError("results must be a List of Result")
+        # Product
+        return Result.operation(math.prod, results, monotonous_increasing=False)
+
+    def __floordiv__(self: "Result", other: "Result") -> "Result":
+        # Checks
+        if not isinstance(other, Result):
+            raise TypeError("other must be an Result")
+
+        # FloorDiv
+        def safe_floordiv(numerator, denominator):
+            return numerator // denominator if denominator != 0 else 0
+
+        return Result.operation(
+            safe_floordiv, [self, other], monotonous_increasing=False
+        )
+
+    @staticmethod
+    def floor_division(numerator: "Result", denominators: List["Result"]) -> "Result":
+        """Calculates the (safe) floor division of a Result object by a list of Result objects.
+
+        Args:
+            `numerator` (Result): The Result object to be divided.
+            `denominators` (List[Result]): A list of Result objects to divide by in order.
+
+        Returns: (Result)
+            The division of the Result object by the Result objects.
+        """
+        # Checks
+        if not isinstance(numerator, Result):
+            raise TypeError("numerator must be an Result")
+        if not isinstance(denominators, List):
+            raise TypeError("denominators must be a List")
+        if not all(isinstance(denominator, Result) for denominator in denominators):
+            raise TypeError("denominators must be a List of Result")
+        # Division
+        division_result = numerator
+        for denominator in denominators:
+            division_result = division_result // denominator
+        return division_result
+
     def __matmul__(self: "Result", other: "Result") -> "Result":
         # TODO : REVAMP !!
         # Check
         if not isinstance(other, Result):
             raise TypeError("other must be an Result")
         # Setup
-        s_counter_array = self.counter_array
+        s_count_array = self.count_array
         s_starting_value = self.starting_value
-        s_length = s_counter_array.size
+        s_length = s_count_array.size
 
         if s_starting_value + s_length - 1 < 0:
             return -((-self) @ other)
 
         # MatMul
+        added_other_list: List[Result] = [None] * (s_starting_value + s_length)
+        added_other_list[0] = Result.zero()
+        added_other_list[1] = other
         if s_starting_value >= 0:
-            results_list: List[Result] = [None] * (s_starting_value + s_length)
-            results_list[0] = Result.zero()
-            results_list[1] = other
             if s_starting_value != 1:
                 optimal_decomposition = OptimalDecomposition(s_starting_value)
                 for target, (i, j) in optimal_decomposition.ordered_operations.items():
-                    results_list[target] = results_list[i] + results_list[j]
-            # NOTE : Could be optimized for s_counter_array with zeros.
+                    added_other_list[target] = added_other_list[i] + added_other_list[j]
+            # NOTE : Could be optimized for s_count_array with zeros.
             for target in range(s_starting_value + 1, s_starting_value + s_length):
                 # other could be written as results_list[1] below
-                results_list[target] = results_list[target - 1] + other
+                added_other_list[target] = added_other_list[target - 1] + other
             targets = [
                 i + s_starting_value
-                for i, count in enumerate(s_counter_array)
+                for i, count in enumerate(s_count_array)
                 if count > 0
             ]
-            targets_results = [results_list[target] for target in targets]
+            targets_results = [added_other_list[target] for target in targets]
             targets_weights = [
-                s_counter_array[target - s_starting_value] for target in targets
+                s_count_array[target - s_starting_value] for target in targets
             ]
             equalized_results = Result.equalize_totals(targets_results)
             return Result.fuse_outcomes(
                 equalized_results, weights=targets_weights, set_gdc_to_one=True
             )
-        else:  # -1 and 0 is in self_counter_array
-            s_geq0_counter_array = s_counter_array[-s_starting_value:]
-            s_lt0_counter_array = s_counter_array[:-s_starting_value]
-            s_geq0_length = s_geq0_counter_array.size
-            s_lt0_length = s_lt0_counter_array.size
-            s_max_length = max(s_geq0_length, s_lt0_length)
-            results_list: List[Result] = [None] * (s_max_length + 1)
-            results_list[0] = Result.zero()
-            results_list[1] = other
-            for target in range(1, s_max_length + 1):
-                results_list[target + 1] = results_list[target] + other
-            return Result.sum(
-                [
-                    Result.scaled_counter_array(
-                        results_list[i], s_geq0_counter_array[i]
-                    )
-                    for i in range(s_geq0_length)
-                ]
-            ) - Result.sum(
-                [
-                    s_lt0_counter_array[i] * results_list[i + 1]
-                    for i in range(s_lt0_length)
-                ]
-            )
+        else:  # -1 and 0 is in self_count_array
+            raise NotImplementedError()
+            # s_geq0_count_array = s_count_array[-s_starting_value:]
+            # s_lt0_count_array = s_count_array[:-s_starting_value]
+            # s_geq0_length = s_geq0_count_array.size
+            # s_lt0_length = s_lt0_count_array.size
+            # s_max_length = max(s_geq0_length, s_lt0_length)
+            # for target in range(1, s_max_length + 1):
+            #     added_other_list[target + 1] = added_other_list[target] + other
 
     def matpow(self: "Result", other: int) -> "Result":
         # TODO
@@ -492,34 +713,6 @@ class Result:
             return self
         return self @ (self.matpow(other - 1))
 
-    def __mul__(self: "Result", other: Union[int, "Result"]) -> "Result":
-        # Checks
-        if isinstance(other, int):
-            return other * self
-        if not isinstance(other, Result):
-            raise TypeError("other must be an int or an Result")
-        # Setup
-        s_counter_array = self.counter_array
-        o_counter_array = other.counter_array
-        s_length = s_counter_array.size
-        o_length = o_counter_array.size
-        s_starting_value = self.starting_value
-        o_starting_value = other.starting_value
-        # Mul
-        values = {
-            s * o
-            for s in range(s_starting_value, s_starting_value + s_length)
-            for o in range(o_starting_value, o_starting_value + o_length)
-        }
-        starting_value = min(values)
-        counter_array = CounterArray.zeros(max(values) - starting_value + 1)
-        for s in range(s_length):
-            for o in range(o_length):
-                counter_array[
-                    (s + s_starting_value) * (o + o_starting_value) - starting_value
-                ] += (s_counter_array[s] * o_counter_array[o])
-        return Result(counter_array, starting_value)
-
     # Shift
     def __lshift__(self: "Result", other: int) -> "Result":
         # Checks
@@ -528,7 +721,7 @@ class Result:
         if other == 0:
             return self
         # Return
-        return Result(self.counter_array, self.starting_value - other)
+        return Result(self.count_array, self.starting_value - other)
 
     def __rshift__(self: "Result", other: int) -> "Result":
         # Checks
@@ -537,37 +730,35 @@ class Result:
         if other == 0:
             return self
         # Return
-        return Result(self.counter_array, self.starting_value + other)
+        return Result(self.count_array, self.starting_value + other)
 
-    # r operations
-    def __rmul__(self, other: int) -> "Result":
-        # Checks
-        if not isinstance(other, int):
-            raise TypeError("other must be an int")
-        # Return
-        if other == 0:
-            return Result.zero()
-        if other < 0:
-            return -(ConstantExpression(-other).evaluate_result() * self)
-        return ConstantExpression(other).evaluate_result() * self
+    def __eq__(self: "Result", other: "Result") -> bool:
+        if not isinstance(other, Result):
+            return False
+        return (
+            self.count_array == other.count_array
+            and self.starting_value == other.starting_value
+        )
 
-    def __rmatmul__(self, other: int) -> "Result":
-        # Checks
-        if not isinstance(other, int):
-            raise TypeError("other must be an int")
-        # Return
-        if other == 0:
-            return Result.zero(self.total_count())
-        if other < 0:
-            return -(ConstantExpression(-other).evaluate_result() @ self)
-        return ConstantExpression(other).evaluate_result() @ self
+    def __ne__(self: "Result", other: "Result") -> bool:
+        if not isinstance(other, Result):
+            return True
+        return (
+            self.count_array != other.count_array
+            or self.starting_value != other.starting_value
+        )
+
+    def __gt__(self: "Result", other: "Result") -> bool:
+        if not isinstance(other, Result):
+            raise TypeError("other must be an Result")
+        return self.total_count > other.total_count
 
     # String representation
     def __str__(self):
-        return f"{self.__counter_array}_{self.__starting_value}"
+        return f"{self.__count_array}_{self.__starting_value} ({self.__total_count})"
 
     def __repr__(self):
-        return f"Result({repr(self.__counter_array)}, {self.__starting_value})"
+        return f"Result({repr(self.__count_array)}, {self.__starting_value})"
 
 
 class Expression(ABC):
@@ -579,9 +770,6 @@ class Expression(ABC):
             Result: The result of the operation defined by the expression.
         """
 
-    def __str__(self):
-        return f"{self.__class__.__name__}"
-
 
 class ConstantExpression(Expression):
     def __init__(self, value: int):
@@ -592,7 +780,13 @@ class ConstantExpression(Expression):
         self.__value = value
 
     def evaluate_result(self) -> Result:
-        return Result(CounterArray.ones(1), self.__value)
+        return Result(CountArray.ones(1), self.__value)
+
+    def __str__(self):
+        return str(self.__value)
+
+    def __repr__(self):
+        return f"ConstantExpression({self.__value})"
 
 
 class SumOfExpressions(Expression):
@@ -609,6 +803,71 @@ class SumOfExpressions(Expression):
 
     def evaluate_result(self) -> Result:
         return Result.sum([expr.evaluate_result() for expr in self.__expressions])
+
+    def __str__(self):
+        expressions_str = ") + (".join(repr(expr) for expr in self.__expressions)
+        return f"({expressions_str})"
+
+    def __repr__(self):
+        expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)
+        return f"SumOfExpressions([{expressions_repr}])"
+
+
+class ProductOfExpressions(Expression):
+    def __init__(self, expressions: List[Expression]):
+        # Checks
+        if not isinstance(expressions, List):
+            raise TypeError("expressions must be a List")
+        if not all(isinstance(expr, Expression) for expr in expressions):
+            raise TypeError("expressions must be a List of Expression")
+        if not len(expressions) > 1:
+            raise ValueError("expressions List must have at least 2 Expression")
+        # Init
+        self.__expressions = expressions
+
+    def evaluate_result(self) -> Result:
+        return Result.product([expr.evaluate_result() for expr in self.__expressions])
+
+    def __str__(self):
+        expressions_str = ") * (".join(repr(expr) for expr in self.__expressions)
+        return f"({expressions_str})"
+
+    def __repr__(self):
+        expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)
+        return f"ProductOfExpressions([{expressions_repr}])"
+
+
+class DivisionOfExpressions(Expression):
+    def __init__(self, numerator: Expression, denominators: List[Expression]):
+        # Checks
+        if not isinstance(numerator, Expression):
+            raise TypeError("numerator must be an Expression")
+        if not isinstance(denominators, List):
+            raise TypeError("denominators must be a List")
+        if not all(isinstance(expr, Expression) for expr in denominators):
+            raise TypeError("denominators must be a List of Expression")
+        if not len(denominators) > 0:
+            raise ValueError("denominators List must have at least 1 Expression")
+        # Init
+        self.__numerator = numerator
+        self.__denominators = denominators
+
+    def evaluate_result(self) -> Result:
+        return Result.floor_division(
+            self.__numerator.evaluate_results(),
+            [expr.evaluate_result() for expr in self.__denominators],
+        )
+
+    def __str__(self):
+        expressions_str = ") // ((".join(
+            repr(expr) for expr in self.__numerator + self.__denominators
+        )
+        closing_parentheses = (len(self.__denominators) - 1) * ")"
+        return f"({expressions_str}{closing_parentheses})"
+
+    def __repr__(self):
+        denominators_repr = ", ".join(repr(expr) for expr in self.__denominators)
+        return f"ProductOfExpressions({repr(self.__numerator)}, [{denominators_repr}])"
 
 
 class RepeatedExpression(Expression):
@@ -630,6 +889,14 @@ class RepeatedExpression(Expression):
             @ self.__repeated_expression.evaluate_result()
         )
 
+    def __str__(self):
+        return f"({self.__repetition_expression}) @ ({self.__repeated_expression})"
+
+    def __repr__(self):
+        repetition_repr = repr(self.__repetition_expression)
+        repeated_repr = repr(self.__repeated_expression)
+        return f"RepeatedExpression({repetition_repr}, {repeated_repr})"
+
 
 class DieExpression(Expression):
     def __init__(self, expression: Expression):
@@ -642,22 +909,22 @@ class DieExpression(Expression):
     def evaluate_result(self) -> Result:
         # Setup
         result: Result = self.__expression.evaluate_result()
-        result_counter_array = result.counter_array
+        result_count_array = result.count_array
         result_starting_value = result.starting_value
         dice: List[Result] = []
         indices: List[int] = []
         # Create dice
-        for index, count in enumerate(result_counter_array):
+        for index, count in enumerate(result_count_array):
             if count == 0:
                 continue
             indices.append(index)
             target = index + result_starting_value
             if target < 0:
-                dice.append(Result(CounterArray.ones(-target), -target))
+                dice.append(Result(CountArray.ones(-target), target))
             elif target == 0:
                 dice.append(Result.zero())
             else:
-                dice.append(Result(CounterArray.ones(target), 1))
+                dice.append(Result(CountArray.ones(target), 1))
         # Fuse dice
         if len(dice) == 0:
             return Result.zero()
@@ -667,11 +934,21 @@ class DieExpression(Expression):
         equalized_dice = Result.equalize_totals(dice)
         return Result.fuse_outcomes(
             [
-                Result.scaled_counter_array(eq_die, result_counter_array[index])
+                (
+                    Result.scaled_count_array(eq_die, result_count_array[index])
+                    if result_count_array[index] != 1
+                    else eq_die
+                )
                 for eq_die, index in zip(equalized_dice, indices, strict=True)
             ],
             set_gdc_to_one=True,
         )
+
+    def __str__(self):
+        return f"d({self.__expression})"
+
+    def __repr__(self):
+        return f"DieExpression({repr(self.__expression)})"
 
 
 class AdvantageExpression(Expression):
@@ -687,44 +964,15 @@ class AdvantageExpression(Expression):
         self.__expressions = expressions
 
     def evaluate_result(self) -> Result:
-        # Setup
-        no_of_expressions = len(self.__expressions)  # > 1 by construction
-        results = [expr.evaluate_result() for expr in self.__expressions]
-        equalized_results = Result.equalize_totals(results)
+        return Result.operation(max, self.__expressions)
 
-        counter_arrays: List[List[int]] = [
-            result.counter_array for result in equalized_results
-        ]
-        starting_values: List[int] = [
-            result.starting_value for result in equalized_results
-        ]
-        ending_values: List[int] = [
-            result.starting_value + result.counter_array.size
-            for result in equalized_results
-        ]
-        # Advantage
-        advantage_starting_value = max(starting_values)
-        advantage_counter_array = CounterArray.zeros(
-            max(ending_values) - advantage_starting_value + 1
-        )
+    def __str__(self):
+        expressions_str = ", ".join(str(expr) for expr in self.__expressions)
+        return f"A({expressions_str})"
 
-        lists = [
-            list(range(starting_values[i], ending_values[i] + 1))
-            for i in range(no_of_expressions)
-        ]
-        combinations = cartesian_product(*lists)
-
-        for combination in combinations:
-            advantage_index = max(combination) - advantage_starting_value
-            advantage_counter_array[advantage_index] += math.prod(
-                [
-                    counter_array[combination[i] - starting_values[i]]
-                    for i, counter_array in enumerate(counter_arrays)
-                ]
-            )
-        advantage_result = Result(advantage_counter_array, advantage_starting_value)
-        advantage_result.set_gcd_to_one()
-        return advantage_result
+    def __repr__(self):
+        expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)
+        return f"AdvantageExpression([{expressions_repr}])"
 
 
 class DisadvantageExpression(Expression):
@@ -740,42 +988,15 @@ class DisadvantageExpression(Expression):
         self.__expressions = expressions
 
     def evaluate_result(self) -> Result:
-        # Setup
-        no_of_expressions = len(self.__expressions)  # > 1 by construction
-        results = [expr.evaluate_result() for expr in self.__expressions]
-        equalized_results = Result.equalize_totals(results)
+        return Result.operation(min, self.__expressions)
 
-        counter_arrays = [result.counter_array for result in equalized_results]
-        starting_values = [result.starting_value for result in equalized_results]
-        ending_values = [
-            result.starting_value + result.counter_array.size - 1
-            for result in equalized_results
-        ]
-        # Disadvantage
-        disadvantage_starting_value = min(starting_values)
-        disadvantage_counter_array = CounterArray.zeros(
-            min(ending_values) - disadvantage_starting_value + 1
-        )
+    def __str__(self):
+        expressions_str = ", ".join(str(expr) for expr in self.__expressions)
+        return f"D({expressions_str})"
 
-        indices_lists = [
-            list(range(starting_values[i], ending_values[i] + 1))
-            for i in range(no_of_expressions)
-        ]
-        combinations = cartesian_product(*indices_lists)
-
-        for combination in combinations:
-            disadvantage_index = min(combination) - disadvantage_starting_value
-            disadvantage_counter_array[disadvantage_index] += math.prod(
-                [
-                    counter_array[combination[i] - starting_values[i]]
-                    for i, counter_array in enumerate(counter_arrays)
-                ]
-            )
-        disadvantage_result = Result(
-            disadvantage_counter_array, disadvantage_starting_value
-        )
-        disadvantage_result.set_gcd_to_one()
-        return disadvantage_result
+    def __repr__(self):
+        expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)
+        return f"DisadvantageExpression([{expressions_repr}])"
 
 
 class ResultExpression(Expression):
@@ -786,6 +1007,12 @@ class ResultExpression(Expression):
 
     def evaluate_result(self) -> Result:
         return self.__result
+
+    def __str__(self):
+        return str(self.__result)
+
+    def __repr__(self):
+        return f"ResultExpression({repr(self.__result)})"
 
 
 class CustomExpression(Expression):
@@ -810,6 +1037,18 @@ class CustomExpression(Expression):
             weights=list(self.__expressions_dict.values()),
             set_gdc_to_one=True,
         )
+
+    def __str__(self):
+        expressions_str = ", ".join(
+            f"{str(key)}: {value}" for key, value in self.__expressions_dict.items()
+        )
+        return f"{{{expressions_str}}}"
+
+    def __repr__(self):
+        expressions_repr = ", ".join(
+            f"{repr(key)}: {value}" for key, value in self.__expressions_dict.items()
+        )
+        return f"CustomExpression({{{expressions_repr}}})"
 
 
 class StringExpression:
@@ -869,13 +1108,41 @@ class StringExpression:
     def evaluate(self) -> Result:
         return self.expression.evaluate_result()
 
+    def __str__(self):
+        return self.str_expr
+
+    def __repr__(self):
+        return f"""StringExpression("{self.str_expr}")"""
+
 
 if __name__ == "__main__":
-    d6 = DieExpression(ConstantExpression(6)).evaluate_result()
-    print("d6:", d6)
-    dd6 = DieExpression(ResultExpression(d6)).evaluate_result()
-    print("dd6", dd6)
-    # A dd6's starting value is 1
-    assert dd6.starting_value == 1
     # PPCM/x[i] : int
     # x[i]/PGCD : int
+    X = 4
+    d = DieExpression(ConstantExpression(X)).evaluate_result()
+    print(f"d{X}: {d}")
+    dd = DieExpression(ResultExpression(d)).evaluate_result()
+    print(f"dd{X}: {dd}")
+    ddd = DieExpression(ResultExpression(dd)).evaluate_result()
+    print(f"ddd{X}: {ddd}")
+    # A dd's starting value is always 1
+    assert dd.starting_value == 1
+    assert ddd.starting_value == 1
+    print(d.mean(), d.stdev())
+    print(dd.mean(), dd.stdev())
+    print(ddd.mean(), ddd.stdev())
+
+    print("\n\n")
+
+    N = 3
+    nd = RepeatedExpression(
+        ConstantExpression(N), ResultExpression(d)
+    ).evaluate_result()
+    ndd = RepeatedExpression(
+        ConstantExpression(N), ResultExpression(dd)
+    ).evaluate_result()
+
+    print(f"{N}d{X}: {nd}")
+    print(f"{N}dd{X}: {ndd}")
+    print(nd.mean(), nd.stdev())
+    print(ndd.mean(), ndd.stdev())
