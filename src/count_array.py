@@ -1,6 +1,8 @@
 from typing import List, Union
 from math import gcd as math_gcd
 
+# TODO : Finish documentation
+
 
 class CountArray:
     def __init__(self, data: List[int]):

@@ -524,7 +524,6 @@ class Result:
         return division_result
 
     def __matmul__(self: "Result", other: "Result") -> "Result":
-        # TODO : REVAMP !!
         # Check
         if not isinstance(other, Result):
             raise TypeError("other must be an Result")
@@ -540,13 +539,16 @@ class Result:
         added_other_list: List[Result] = [None] * (s_starting_value + s_length)
         added_other_list[0] = Result.zero()
         added_other_list[1] = other
+        # TODO : Create some functions to make this more readable
         if s_starting_value >= 0:
             if s_starting_value != 1:
                 optimal_decomposition = OptimalDecomposition(s_starting_value)
                 for target, (i, j) in optimal_decomposition.ordered_operations.items():
                     added_other_list[target] = added_other_list[i] + added_other_list[j]
             # NOTE : Could be optimized for s_count_array with zeros.
-            for target in range(s_starting_value + 1, s_starting_value + s_length):
+            for target in range(
+                max(s_starting_value + 1, 2), s_starting_value + s_length
+            ):
                 # other could be written as results_list[1] below
                 added_other_list[target] = added_other_list[target - 1] + other
             targets = [
@@ -564,6 +566,7 @@ class Result:
             )
         # -1 and 0 is in self_count_array
         raise NotImplementedError()
+        # TODO : Implement matmul for values both positive and negative
         # s_geq0_count_array = s_count_array[-s_starting_value:]
         # s_lt0_count_array = s_count_array[:-s_starting_value]
         # s_geq0_length = s_geq0_count_array.size
@@ -572,7 +575,7 @@ class Result:
         # for target in range(1, s_max_length + 1):
         #     added_other_list[target + 1] = added_other_list[target] + other
 
-    # TODO ?
+    # TODO ? Implement matpow
     # def matpow(self: "Result", other: int) -> "Result":
     #     if not isinstance(other, int):
     #         raise TypeError("other must be an int")

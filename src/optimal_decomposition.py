@@ -2,6 +2,8 @@ import numpy as np
 from time import time
 from typing import List, Dict, Tuple
 
+# TODO : Finish documentation
+
 
 class OptimalDecomposition:
     def __init__(self, n):

@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 from typing import List, Dict
 from math import gcd as math_gcd
 
+# TODO : Finish documentation
+
 
 class Expression(ABC):
     @abstractmethod
