@@ -1,8 +1,9 @@
-from ndx.count_array import CountArray
-from ndx.result import Result
+from src.count_array import CountArray
+from src.result import Result
 
 from abc import ABC, abstractmethod
 from typing import List, Dict
+from math import gcd as math_gcd
 
 
 class Expression(ABC):
@@ -31,115 +32,6 @@ class ConstantExpression(Expression):
 
     def __repr__(self):
         return f"ConstantExpression({self.__value})"
-
-
-class SumOfExpressions(Expression):
-    def __init__(self, expressions: List[Expression]):
-        # Checks
-        if not isinstance(expressions, List):
-            raise TypeError("expressions must be a List")
-        if not all(isinstance(expr, Expression) for expr in expressions):
-            raise TypeError("expressions must be a List of Expression")
-        if not len(expressions) > 1:
-            raise ValueError("expressions List must have at least 2 Expression")
-        # Init
-        self.__expressions = expressions
-
-    def evaluate_result(self) -> Result:
-        return Result.sum([expr.evaluate_result() for expr in self.__expressions])
-
-    def __str__(self):
-        expressions_str = ") + (".join(repr(expr) for expr in self.__expressions)
-        return f"({expressions_str})"
-
-    def __repr__(self):
-        expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)
-        return f"SumOfExpressions([{expressions_repr}])"
-
-
-class ProductOfExpressions(Expression):
-    def __init__(self, expressions: List[Expression]):
-        # Checks
-        if not isinstance(expressions, List):
-            raise TypeError("expressions must be a List")
-        if not all(isinstance(expr, Expression) for expr in expressions):
-            raise TypeError("expressions must be a List of Expression")
-        if not len(expressions) > 1:
-            raise ValueError("expressions List must have at least 2 Expression")
-        # Init
-        self.__expressions = expressions
-
-    def evaluate_result(self) -> Result:
-        return Result.product([expr.evaluate_result() for expr in self.__expressions])
-
-    def __str__(self):
-        expressions_str = ") * (".join(repr(expr) for expr in self.__expressions)
-        return f"({expressions_str})"
-
-    def __repr__(self):
-        expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)
-        return f"ProductOfExpressions([{expressions_repr}])"
-
-
-class DivisionOfExpressions(Expression):
-    def __init__(self, numerator: Expression, denominators: List[Expression]):
-        # Checks
-        if not isinstance(numerator, Expression):
-            raise TypeError("numerator must be an Expression")
-        if not isinstance(denominators, List):
-            raise TypeError("denominators must be a List")
-        if not all(isinstance(expr, Expression) for expr in denominators):
-            raise TypeError("denominators must be a List of Expression")
-        if not len(denominators) > 0:
-            raise ValueError("denominators List must have at least 1 Expression")
-        # Init
-        self.__numerator = numerator
-        self.__denominators = denominators
-
-    def evaluate_result(self) -> Result:
-        return Result.floor_division(
-            self.__numerator.evaluate_results(),
-            [expr.evaluate_result() for expr in self.__denominators],
-        )
-
-    def __str__(self):
-        expressions_str = ") // ((".join(
-            repr(expr) for expr in self.__numerator + self.__denominators
-        )
-        closing_parentheses = (len(self.__denominators) - 1) * ")"
-        return f"({expressions_str}{closing_parentheses})"
-
-    def __repr__(self):
-        denominators_repr = ", ".join(repr(expr) for expr in self.__denominators)
-        return f"ProductOfExpressions({repr(self.__numerator)}, [{denominators_repr}])"
-
-
-class RepeatedExpression(Expression):
-    def __init__(
-        self, repetition_expression: Expression, repeated_expression: Expression
-    ):
-        # Checks
-        if not isinstance(repetition_expression, Expression):
-            raise ValueError("repetition_expression must be an Expression")
-        if not isinstance(repeated_expression, Expression):
-            raise ValueError("repeated_expression must be an Expression")
-        # Init
-        self.__repetition_expression = repetition_expression
-        self.__repeated_expression = repeated_expression
-
-    def evaluate_result(self) -> Result:
-        return (
-            self.__repetition_expression.evaluate_result()
-            @ self.__repeated_expression.evaluate_result()
-        )
-
-    def __str__(self):
-        return f"({self.__repetition_expression}) @ ({self.__repeated_expression})"
-
-    def __repr__(self):
-        repetition_repr = repr(self.__repetition_expression)
-        repeated_repr = repr(self.__repeated_expression)
-        return f"RepeatedExpression({repetition_repr}, {repeated_repr})"
 
 
 class DieExpression(Expression):
@@ -195,7 +87,125 @@ class DieExpression(Expression):
         return f"DieExpression({repr(self.__expression)})"
 
 
-class AdvantageExpression(Expression):
+class SumOfExpressions(Expression):
+    def __init__(self, expressions: List[Expression]):
+        # Checks
+        if not isinstance(expressions, List):
+            raise TypeError("expressions must be a List")
+        if not all(isinstance(expr, Expression) for expr in expressions):
+            raise TypeError("expressions must be a List of Expression")
+        if not len(expressions) > 1:
+            raise ValueError("expressions List must have at least 2 Expression")
+        # Init
+        self.__expressions = expressions
+
+    def evaluate_result(self) -> Result:
+        return Result.sum([expr.evaluate_result() for expr in self.__expressions])
+
+    def __str__(self):
+        expressions_str = ") + (".join(str(expr) for expr in self.__expressions)
+        return f"({expressions_str})"
+
+    def __repr__(self):
+        expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)
+        return f"SumOfExpressions([{expressions_repr}])"
+
+
+class ProductOfExpressions(Expression):
+    def __init__(self, expressions: List[Expression]):
+        # Checks
+        if not isinstance(expressions, List):
+            raise TypeError("expressions must be a List")
+        if not all(isinstance(expr, Expression) for expr in expressions):
+            raise TypeError("expressions must be a List of Expression")
+        if not len(expressions) > 1:
+            raise ValueError("expressions List must have at least 2 Expression")
+        # Init
+        self.__expressions = expressions
+
+    def evaluate_result(self) -> Result:
+        return Result.product([expr.evaluate_result() for expr in self.__expressions])
+
+    def __str__(self):
+        expressions_str = ") * (".join(str(expr) for expr in self.__expressions)
+        return f"({expressions_str})"
+
+    def __repr__(self):
+        expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)
+        return f"ProductOfExpressions([{expressions_repr}])"
+
+
+class DivisionOfExpressions(Expression):
+    def __init__(
+        self, numerator: Expression, denominators: List[Expression], floor=True
+    ):
+        # Checks
+        if not isinstance(numerator, Expression):
+            raise TypeError("numerator must be an Expression")
+        if not isinstance(denominators, List):
+            raise TypeError("denominators must be a List")
+        if not all(isinstance(expr, Expression) for expr in denominators):
+            raise TypeError("denominators must be a List of Expression")
+        if not len(denominators) > 0:
+            raise ValueError("denominators List must have at least 1 Expression")
+        # Init
+        self.__numerator = numerator
+        self.__denominators = denominators
+        self.__floor = floor
+
+    def evaluate_result(self) -> Result:
+        if self.__floor:
+            return Result.floor_division(
+                self.__numerator.evaluate_result(),
+                [expr.evaluate_result() for expr in self.__denominators],
+            )
+        return Result.ceil_division(
+            self.__numerator.evaluate_result(),
+            [expr.evaluate_result() for expr in self.__denominators],
+        )
+
+    def __str__(self):
+        expressions_str = f") //{'^'*(not self.__floor)} ((".join(
+            str(expr) for expr in [self.__numerator] + self.__denominators
+        )
+        closing_parentheses = (len(self.__denominators) - 1) * ")"
+        return f"({expressions_str}{closing_parentheses})"
+
+    def __repr__(self):
+        denominators_repr = ", ".join(repr(expr) for expr in self.__denominators)
+        floor_parameter = "" if self.__floor else ", floor=False"
+        return f"DivisionOfExpressions({repr(self.__numerator)}, [{denominators_repr}]{floor_parameter})"
+
+
+class ExpressionRepetitionOfExpression(Expression):
+    def __init__(
+        self, repetition_expression: Expression, repeated_expression: Expression
+    ):
+        # Checks
+        if not isinstance(repetition_expression, Expression):
+            raise ValueError("repetition_expression must be an Expression")
+        if not isinstance(repeated_expression, Expression):
+            raise ValueError("repeated_expression must be an Expression")
+        # Init
+        self.__repetition_expression = repetition_expression
+        self.__repeated_expression = repeated_expression
+
+    def evaluate_result(self) -> Result:
+        return (
+            self.__repetition_expression.evaluate_result()
+            @ self.__repeated_expression.evaluate_result()
+        )
+
+    def __str__(self):
+        return f"({self.__repetition_expression})({self.__repeated_expression})"
+
+    def __repr__(self):
+        repetition_repr = repr(self.__repetition_expression)
+        repeated_repr = repr(self.__repeated_expression)
+        return f"ExpressionRepetitionOfExpression({repetition_repr}, {repeated_repr})"
+
+
+class AdvantageOfExpressions(Expression):
     def __init__(self, expressions: List[Expression]):
         # Checks
         if not isinstance(expressions, List):
@@ -217,10 +227,10 @@ class AdvantageExpression(Expression):
 
     def __repr__(self):
         expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)
-        return f"AdvantageExpression([{expressions_repr}])"
+        return f"AdvantageOfExpressions([{expressions_repr}])"
 
 
-class DisadvantageExpression(Expression):
+class DisadvantageOfExpressions(Expression):
     def __init__(self, expressions: List[Expression]):
         # Checks
         if not isinstance(expressions, List):
@@ -242,33 +252,25 @@ class DisadvantageExpression(Expression):
 
     def __repr__(self):
         expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)
-        return f"DisadvantageExpression([{expressions_repr}])"
+        return f"DisadvantageOfExpressions([{expressions_repr}])"
 
 
-class ResultExpression(Expression):
-    def __init__(self, result: Result):
-        if not isinstance(result, Result):
-            raise ValueError("result must be an Result")
-        self.__result = result
-
-    def evaluate_result(self) -> Result:
-        return self.__result
-
-    def __str__(self):
-        return str(self.__result)
-
-    def __repr__(self):
-        return f"ResultExpression({repr(self.__result)})"
-
-
-class CustomExpression(Expression):
+class WeightedExpressions(Expression):
     def __init__(self, expressions_dict: Dict[Expression, int]):
         if not isinstance(expressions_dict, Dict):
             raise ValueError("expressions_dict must be a Dict")
         if not all(isinstance(value, Expression) for value in expressions_dict.keys()):
             raise ValueError("expressions_dict keys must be Expressions")
         if not all(isinstance(weight, int) for weight in expressions_dict.values()):
-            raise ValueError("expressions_dict values must be ints")
+            raise ValueError("expressions_dict values (weights) must be ints")
+        # all weights should be > 0:
+        if not all(weight > 0 for weight in expressions_dict.values()):
+            raise ValueError("expressions_dict values (weights) must be > 0")
+        gcd = math_gcd(*expressions_dict.values())
+        if gcd != 1:
+            expressions_dict = {
+                key: value // gcd for key, value in expressions_dict.items()
+            }
         self.__expressions_dict = expressions_dict
 
     def evaluate_result(self) -> Result:
@@ -294,7 +296,23 @@ class CustomExpression(Expression):
         expressions_repr = ", ".join(
             f"{repr(key)}: {value}" for key, value in self.__expressions_dict.items()
         )
-        return f"CustomExpression({{{expressions_repr}}})"
+        return f"WeightedExpressions({{{expressions_repr}}})"
+
+
+class ResultExpression(Expression):
+    def __init__(self, result: Result):
+        if not isinstance(result, Result):
+            raise ValueError("result must be an Result")
+        self.__result = result
+
+    def evaluate_result(self) -> Result:
+        return self.__result
+
+    def __str__(self):
+        return str(self.__result)
+
+    def __repr__(self):
+        return f"ResultExpression({repr(self.__result)})"
 
 
 class StringExpression:

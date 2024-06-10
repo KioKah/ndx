@@ -170,6 +170,7 @@ class CountArray:
                 self.__data[i] += other
         else:
             raise TypeError("other must be a CountArray or an int")
+        return self
 
     def __isub__(self, other: Union["CountArray", int]):
         if isinstance(other, CountArray):
@@ -182,6 +183,7 @@ class CountArray:
                 self.__data[i] -= other
         else:
             raise TypeError("other must be a CountArray or an int")
+        return self
 
     def __imul__(self, other: Union["CountArray", int]):
         if isinstance(other, CountArray):
@@ -194,6 +196,7 @@ class CountArray:
                 self.__data[i] *= other
         else:
             raise TypeError("other must be a CountArray or an int")
+        return self
 
     def __ifloordiv__(self, other: Union["CountArray", int]):
         if isinstance(other, CountArray):
@@ -206,6 +209,7 @@ class CountArray:
                 self.__data[i] //= other
         else:
             raise TypeError("other must be a CountArray or an int")
+        return self
 
     # String representation
     def __str__(self):

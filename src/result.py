@@ -1,8 +1,9 @@
-from count_array import CountArray
-from optimal_decomposition import OptimalDecomposition
+from src.count_array import CountArray
+from src.optimal_decomposition import OptimalDecomposition
 
 from itertools import product as cartesian_product
-from typing import Callable, Dict, List, Sequence, Tuple, Union
+from typing import Callable, Dict, List, Sequence, Tuple
+import warnings
 import math
 import matplotlib.pyplot as plt
 
@@ -44,7 +45,7 @@ class Result:
         self.__total_count = count_array.total()
         self.__probabilities = None
         self.__title = title
-        print(">", str(self))
+        ## print(">", str(self))
 
     # Getters
     @property
@@ -94,7 +95,7 @@ class Result:
         x_axis = range(start, end + 1)
 
         probabilities = [p * 100 for p in self.probabilities.values()]
-        uniform = 100 / size
+        uniform_probability = 100 / size
         max_probability = max(probabilities)
 
         colors = []
@@ -104,7 +105,7 @@ class Result:
         for p in probabilities:
             if p == max_probability:
                 colors.append(MAX_COLOR)
-            elif p >= uniform:
+            elif p > uniform_probability:
                 colors.append(HIGH_COLOR)
             else:
                 colors.append(BASE_COLOR)
@@ -112,7 +113,7 @@ class Result:
         plt.bar(x_axis, probabilities, color=colors)
         plt.plot(
             [start - 0.5, end + 0.5],
-            [uniform, uniform],
+            [uniform_probability, uniform_probability],
             "#FF0000",
             label="Moyenne",
             linewidth=0.5,
@@ -437,8 +438,16 @@ class Result:
             raise TypeError("other must be an Result")
 
         # FloorDiv
-        def safe_floordiv(numerator, denominator):
-            return numerator // denominator if denominator != 0 else 0
+        def safe_floordiv(fraction: Tuple[int]):
+            if not isinstance(fraction, tuple) or len(fraction) != 2:
+                raise ValueError("fraction must be a tuple containing two integers")
+            if not all(isinstance(value, int) for value in fraction):
+                raise ValueError("fraction must contain only integers")
+            numerator, denominator = fraction
+            if denominator == 0:
+                warnings.warn("Division by zero, returned 0", RuntimeWarning)
+                return 0
+            return numerator // denominator
 
         return Result.operation(
             safe_floordiv, [self, other], monotonous_increasing=False
@@ -466,6 +475,52 @@ class Result:
         division_result = numerator
         for denominator in denominators:
             division_result = division_result // denominator
+        return division_result
+
+    def ceil_div(self: "Result", other: "Result") -> "Result":
+        # Checks
+        if not isinstance(other, Result):
+            raise TypeError("other must be an Result")
+
+        # FloorDiv
+        def safe_ceil_div(fraction: Tuple[int]):
+            if not isinstance(fraction, tuple) or len(fraction) != 2:
+                raise ValueError("fraction must be a tuple containing two integers")
+            if not all(isinstance(value, int) for value in fraction):
+                raise ValueError("fraction must contain only integers")
+            numerator, denominator = fraction
+            if denominator == 0:
+                warnings.warn("Division by zero, returned 0", RuntimeWarning)
+                return 0
+            div, mod = divmod(numerator, denominator)
+            return div + (mod > 0)
+
+        return Result.operation(
+            safe_ceil_div, [self, other], monotonous_increasing=False
+        )
+
+    @staticmethod
+    def ceil_division(numerator: "Result", denominators: List["Result"]) -> "Result":
+        """Calculates the (safe) ceil division of a Result object by a list of Result objects.
+
+        Args:
+            `numerator` (Result): The Result object to be divided.
+            `denominators` (List[Result]): A list of Result objects to divide by in order.
+
+        Returns: (Result)
+            The division of the Result object by the Result objects.
+        """
+        # Checks
+        if not isinstance(numerator, Result):
+            raise TypeError("numerator must be an Result")
+        if not isinstance(denominators, List):
+            raise TypeError("denominators must be a List")
+        if not all(isinstance(denominator, Result) for denominator in denominators):
+            raise TypeError("denominators must be a List of Result")
+        # Division
+        division_result = numerator
+        for denominator in denominators:
+            division_result = division_result.ceil_div(denominator)
         return division_result
 
     def __matmul__(self: "Result", other: "Result") -> "Result":
