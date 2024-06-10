@@ -1,15 +1,15 @@
 """
-    Hey
+    ndx stands for n x-sided dice
+    # * 15d6 confirmed by numpy convolutions
 """
 
-from typing import List, Tuple, Dict, Union, Callable, Iterable, Sequence
+from typing import List, Tuple, Dict, Union, Callable, Sequence
 from abc import ABC, abstractmethod
 from itertools import product as cartesian_product
 import math
 import matplotlib.pyplot as plt
 
 from optimal_decomposition import OptimalDecomposition
-
 
 # from colorsys import hsv_to_rgb
 
@@ -221,7 +221,7 @@ class CountArray:
 
 
 class Result:
-    """`Result(count_array: List[int], starting_value: int = 1)`
+    """`Result(count_array: CountArray, starting_value: int = 1, expression_repr: str = "")`
 
     Result of an Expression
 
@@ -236,12 +236,14 @@ class Result:
         `__starting_value` (int) : Starting value of the count_array
         `__total_count` (int) : Total number of ways to obtain a value
         `__probabilities` (Dict[int, float]) : Values and probabilities of drawing each value
+        `__expression_repr` (str) : String representation of the expression
     """
 
     def __init__(
         self,
         count_array: CountArray,
         starting_value: int = 1,
+        expression_repr: str = "",
     ):
         # Checks
         if not isinstance(count_array, CountArray):
@@ -254,7 +256,8 @@ class Result:
         self.__starting_value = starting_value
         self.__total_count = count_array.total()
         self.__probabilities = None
-        print(str(self))
+        self.__expression_repr = expression_repr
+        print(">", str(self))
 
     # Getters
     @property
@@ -275,7 +278,14 @@ class Result:
     @property
     def probabilities(self) -> Dict[int, float]:
         """Getter for `__probabilities`"""
+        if self.__probabilities is None:
+            self.__probabilities = self.compute_probabilities()
         return self.__probabilities
+
+    @property
+    def expression_repr(self) -> str:
+        """Getter for `__expression_repr`"""
+        return self.__expression_repr
 
     # Main methods
     def set_gcd_to_one(self):
@@ -289,40 +299,57 @@ class Result:
             self.__count_array //= gcd
             self.__total_count //= gcd
 
-    def plot(self):
+    def plot(self, title: str):
         """Plot the count_array"""
-        plt.bar(
-            range(
-                self.__starting_value,
-                self.__starting_value + self.__count_array.size,
-            ),
-            self.__count_array,
-        )
-        plt.show()
-        # TODO : Add title, labels, etc.
+        start = self.__starting_value
+        size = self.__count_array.size
+        end = start + size - 1
+        x_axis = range(start, end + 1)
 
-    def evaluate_probabilities(self) -> Dict[int, float]:
-        print(str(self))
+        probabilities = [p * 100 for p in self.probabilities.values()]
+        uniform = 100 / size
+        max_probability = max(probabilities)
+
+        colors = []
+        MAX_COLOR = "#003AB0"
+        HIGH_COLOR = "#0054FF"
+        BASE_COLOR = "#4180FF"
+        for p in probabilities:
+            if p == max_probability:
+                colors.append(MAX_COLOR)
+            elif p >= uniform:
+                colors.append(HIGH_COLOR)
+            else:
+                colors.append(BASE_COLOR)
+
+        plt.bar(x_axis, probabilities, color=colors)
+        plt.plot(
+            [start - 0.5, end + 0.5],
+            [uniform, uniform],
+            "#FF0000",
+            label="Moyenne",
+            linewidth=0.5,
+        )
+        plt.title(f"{title}\nMean {self.mean():.2f} / STDev {self.stdev():.2f}")
+        plt.xlabel("Résultat")
+        plt.ylabel("Probabilité (%)")
+        plt.legend()
+        plt.show()
+
+    def compute_probabilities(self) -> Dict[int, float]:
         return {
             i + self.__starting_value: (count / self.__total_count)
             for i, count in enumerate(self.__count_array)
         }
 
-    def compute_probabilities(self) -> bool:
-        if self.__probabilities is None:
-            self.__probabilities = self.evaluate_probabilities()
-
     def mean(self) -> float:
-        self.compute_probabilities()
         return sum(
-            value * probability for value, probability in self.__probabilities.items()
+            value * probability for value, probability in self.probabilities.items()
         )
 
     def variance(self) -> float:
-        self.compute_probabilities()
         variance_term = sum(
-            value**2 * probability
-            for value, probability in self.__probabilities.items()
+            value**2 * probability for value, probability in self.probabilities.items()
         )
         variance = variance_term - (self.mean()) ** 2
         return variance if variance >= 0 else 0.0
@@ -366,6 +393,8 @@ class Result:
             raise ValueError("factor must be >= 0")
         if factor == 0:
             return Result.zero()
+        if factor == 1:
+            return result
         return Result(result.count_array * factor, result.starting_value)
 
     # Operations
@@ -456,7 +485,7 @@ class Result:
     @staticmethod
     def combinations(
         starting_values: List[int], ending_values: List[int]
-    ) -> Iterable[Tuple[int]]:
+    ) -> List[Tuple[int]]:
         """Generate combinations of values within specified ranges.
 
         This method takes two lists of integers, starting_values and ending_values,
@@ -467,14 +496,14 @@ class Result:
             `ending_values` (List[int]): A list of ending values for each range.
 
         Returns:
-            Iterable[Tuple[int]]: An iterable of tuples representing the combinations
+            List[Tuple[int]]: The list of tuples representing the combinations
             of values within the specified ranges.
         """
         list_of_ranges = [
             range(starting_value, ending_value + 1)
             for starting_value, ending_value in zip(starting_values, ending_values)
         ]
-        return cartesian_product(*list_of_ranges)
+        return list(cartesian_product(*list_of_ranges))
 
     # 'Too many local variables' pylint: disable=R0914
     @staticmethod
@@ -517,7 +546,7 @@ class Result:
         count_arrays: List[CountArray] = [result.count_array for result in results]
         starting_values = [result.starting_value for result in results]
         ending_values = [
-            result.starting_value + result.count_array.size for result in results
+            result.starting_value + result.count_array.size - 1 for result in results
         ]
         combinations = Result.combinations(starting_values, ending_values)
         # Operation
@@ -691,27 +720,63 @@ class Result:
             return Result.fuse_outcomes(
                 equalized_results, weights=targets_weights, set_gdc_to_one=True
             )
-        else:  # -1 and 0 is in self_count_array
-            raise NotImplementedError()
-            # s_geq0_count_array = s_count_array[-s_starting_value:]
-            # s_lt0_count_array = s_count_array[:-s_starting_value]
-            # s_geq0_length = s_geq0_count_array.size
-            # s_lt0_length = s_lt0_count_array.size
-            # s_max_length = max(s_geq0_length, s_lt0_length)
-            # for target in range(1, s_max_length + 1):
-            #     added_other_list[target + 1] = added_other_list[target] + other
+        # -1 and 0 is in self_count_array
+        raise NotImplementedError()
+        # s_geq0_count_array = s_count_array[-s_starting_value:]
+        # s_lt0_count_array = s_count_array[:-s_starting_value]
+        # s_geq0_length = s_geq0_count_array.size
+        # s_lt0_length = s_lt0_count_array.size
+        # s_max_length = max(s_geq0_length, s_lt0_length)
+        # for target in range(1, s_max_length + 1):
+        #     added_other_list[target + 1] = added_other_list[target] + other
 
-    def matpow(self: "Result", other: int) -> "Result":
-        # TODO
-        if not isinstance(other, int):
-            raise TypeError("other must be an int")
-        if other < 0:
-            raise ValueError("other must be >= 0")
-        if other == 0:
-            return Result.zero()
-        if other == 1:
-            return self
-        return self @ (self.matpow(other - 1))
+    # TODO ?
+    # def matpow(self: "Result", other: int) -> "Result":
+    #     if not isinstance(other, int):
+    #         raise TypeError("other must be an int")
+    #     if other < 0:
+    #         raise ValueError("other must be >= 0")
+    #     if other == 0:
+    #         return Result.zero()
+    #     if other == 1:
+    #         return self
+    #     return self @ (self.matpow(other - 1))
+
+    @staticmethod
+    def advantage(results: List["Result"]) -> "Result":
+        """Calculates the advantage result based on a list of Result objects.
+
+        Args:
+            results (List[Result]): The results the advantage operation is performed on.
+
+        Returns:
+            Result: The Result object representing the calculated advantage.
+        """
+        # Checks
+        if not isinstance(results, List):
+            raise TypeError("results must be a List")
+        if not all(isinstance(result, Result) for result in results):
+            raise TypeError("results must be a List of Result")
+        # Product
+        return Result.operation(max, results, monotonous_increasing=True)
+
+    @staticmethod
+    def disadvantage(results: List["Result"]) -> "Result":
+        """Calculates the disadvantage result based on a list of Result objects.
+
+        Args:
+            results (List[Result]): The results the disadvantage operation is performed on.
+
+        Returns:
+            Result: The Result object representing the calculated disadvantage.
+        """
+        # Checks
+        if not isinstance(results, List):
+            raise TypeError("results must be a List")
+        if not all(isinstance(result, Result) for result in results):
+            raise TypeError("results must be a List of Result")
+        # Product
+        return Result.operation(min, results, monotonous_increasing=True)
 
     # Shift
     def __lshift__(self: "Result", other: int) -> "Result":
@@ -754,10 +819,10 @@ class Result:
         return self.total_count > other.total_count
 
     # String representation
-    def __str__(self):
-        return f"{self.__count_array}_{self.__starting_value} ({self.__total_count})"
+    def __str__(self) -> str:
+        return f"{self.__count_array}_{self.__starting_value}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Result({repr(self.__count_array)}, {self.__starting_value})"
 
 
@@ -964,7 +1029,8 @@ class AdvantageExpression(Expression):
         self.__expressions = expressions
 
     def evaluate_result(self) -> Result:
-        return Result.operation(max, self.__expressions)
+        results = [expression.evaluate_result() for expression in self.__expressions]
+        return Result.advantage(results)
 
     def __str__(self):
         expressions_str = ", ".join(str(expr) for expr in self.__expressions)
@@ -988,7 +1054,8 @@ class DisadvantageExpression(Expression):
         self.__expressions = expressions
 
     def evaluate_result(self) -> Result:
-        return Result.operation(min, self.__expressions)
+        results = [expression.evaluate_result() for expression in self.__expressions]
+        return Result.disadvantage(results)
 
     def __str__(self):
         expressions_str = ", ".join(str(expr) for expr in self.__expressions)
@@ -1116,33 +1183,102 @@ class StringExpression:
 
 
 if __name__ == "__main__":
+    # * 15d6 confirmed by numpy convolutions
+
     # PPCM/x[i] : int
     # x[i]/PGCD : int
     X = 4
-    d = DieExpression(ConstantExpression(X)).evaluate_result()
-    print(f"d{X}: {d}")
-    dd = DieExpression(ResultExpression(d)).evaluate_result()
-    print(f"dd{X}: {dd}")
-    ddd = DieExpression(ResultExpression(dd)).evaluate_result()
-    print(f"ddd{X}: {ddd}")
+    dx = DieExpression(ConstantExpression(X)).evaluate_result()
+    print(f"d{X}: {dx}")
+    ddx = DieExpression(ResultExpression(dx)).evaluate_result()
+    print(f"dd{X}: {ddx}")
+    dddx = DieExpression(ResultExpression(ddx)).evaluate_result()
+    print(f"ddd{X}: {dddx}")
     # A dd's starting value is always 1
-    assert dd.starting_value == 1
-    assert ddd.starting_value == 1
-    print(d.mean(), d.stdev())
-    print(dd.mean(), dd.stdev())
-    print(ddd.mean(), ddd.stdev())
+    assert ddx.starting_value == 1
+    assert dddx.starting_value == 1
+    print(dx.mean(), dx.stdev())
+    print(ddx.mean(), ddx.stdev())
+    print(dddx.mean(), dddx.stdev())
 
     print("\n\n")
 
     N = 3
-    nd = RepeatedExpression(
-        ConstantExpression(N), ResultExpression(d)
+    ndx = RepeatedExpression(
+        ConstantExpression(N), ResultExpression(dx)
     ).evaluate_result()
-    ndd = RepeatedExpression(
-        ConstantExpression(N), ResultExpression(dd)
-    ).evaluate_result()
+    NDDX = RepeatedExpression(ConstantExpression(N), ResultExpression(ddx))
+    nddx = NDDX.evaluate_result()
 
-    print(f"{N}d{X}: {nd}")
-    print(f"{N}dd{X}: {ndd}")
-    print(nd.mean(), nd.stdev())
-    print(ndd.mean(), ndd.stdev())
+    print(f"{N}d{X}: {ndx}")
+    print(f"{N}dd{X}: {nddx}")
+    print(ndx.mean(), ndx.stdev())
+    print(nddx.mean(), nddx.stdev())
+
+    # nd.plot(
+    #     str(
+    #         RepeatedExpression(
+    #             ConstantExpression(N),
+    #             DieExpression(ConstantExpression(X)),
+    #         )
+    #     )
+    # )
+
+    print("\n\n")
+
+    # Advantage test
+    a = AdvantageExpression(
+        [ResultExpression(dx), ResultExpression(ddx)]
+    ).evaluate_result()
+    print(f"A(d{X}, dd{X}): {a}")
+    print(a.mean(), a.stdev())
+    # A.plot(
+    #     str(
+    #         AdvantageExpression(
+    #             [
+    #                 DieExpression(ConstantExpression(X)),
+    #                 DieExpression(DieExpression(ConstantExpression(X))),
+    #             ]
+    #         )
+    #     )
+    # )
+
+    print("\n\n")
+
+    # Disadvantage test
+    d = DisadvantageExpression(
+        [ResultExpression(dx), ResultExpression(ddx)]
+    ).evaluate_result()
+    print(f"D(d{X}, dd{X}): {d}")
+    print(d.mean(), d.stdev())
+    # D.plot(
+    #     str(
+    #         DisadvantageExpression(
+    #             [
+    #                 DieExpression(ConstantExpression(X)),
+    #                 DieExpression(DieExpression(ConstantExpression(X))),
+    #             ]
+    #         )
+    #     )
+    # )
+
+    print("\n\n")
+    # Custom test
+    c = CustomExpression(
+        {
+            ResultExpression(dx): 2,
+            ResultExpression(ddx): 3,
+        }
+    ).evaluate_result()
+    print(f"Custom: {c}")
+    print(c.mean(), c.stdev())
+    c.plot(
+        str(
+            CustomExpression(
+                {
+                    DieExpression(ConstantExpression(X)): 2,
+                    DieExpression(DieExpression(ConstantExpression(X))): 3,
+                }
+            )
+        )
+    )
