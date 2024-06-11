@@ -225,7 +225,7 @@ class AdvantageOfExpressions(Expression):
 
     def __str__(self):
         expressions_str = ", ".join(str(expr) for expr in self.__expressions)
-        return f"A({expressions_str})"
+        return f"Adv({expressions_str})"
 
     def __repr__(self):
         expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)
@@ -250,7 +250,7 @@ class DisadvantageOfExpressions(Expression):
 
     def __str__(self):
         expressions_str = ", ".join(str(expr) for expr in self.__expressions)
-        return f"D({expressions_str})"
+        return f"Disadv({expressions_str})"
 
     def __repr__(self):
         expressions_repr = ", ".join(repr(expr) for expr in self.__expressions)

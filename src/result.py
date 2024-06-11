@@ -5,7 +5,6 @@ from itertools import product as cartesian_product
 from typing import Callable, Dict, List, Sequence, Tuple
 import warnings
 import math
-import matplotlib.pyplot as plt
 
 
 class Result:
@@ -24,14 +23,12 @@ class Result:
         `__starting_value` (int) : Starting value of the count_array
         `__total_count` (int) : Total number of ways to obtain a value
         `__probabilities` (Dict[int, float]) : Values and probabilities of drawing each value
-        `__title` (str) : Title of the plot
     """
 
     def __init__(
         self,
         count_array: CountArray,
         starting_value: int = 1,
-        title: str = "",
     ):
         # Checks
         if not isinstance(count_array, CountArray):
@@ -44,7 +41,6 @@ class Result:
         self.__starting_value = starting_value
         self.__total_count = count_array.total()
         self.__probabilities = None
-        self.__title = title
         ## print(">", str(self))
 
     # Getters
@@ -70,11 +66,6 @@ class Result:
             self.__probabilities = self.compute_probabilities()
         return self.__probabilities
 
-    @property
-    def title(self) -> str:
-        """Getter for `__title`"""
-        return self.__title
-
     # Main methods
     def set_gcd_to_one(self):
         """Set the greatest common divisor of the count_array to 1
@@ -86,43 +77,6 @@ class Result:
         if gcd != 1:
             self.__count_array //= gcd
             self.__total_count //= gcd
-
-    def plot(self, title: str):
-        """Plot the count_array"""
-        start = self.__starting_value
-        size = self.__count_array.size
-        end = start + size - 1
-        x_axis = range(start, end + 1)
-
-        probabilities = [p * 100 for p in self.probabilities.values()]
-        uniform_probability = 100 / size
-        max_probability = max(probabilities)
-
-        colors = []
-        MAX_COLOR = "#003AB0"
-        HIGH_COLOR = "#0054FF"
-        BASE_COLOR = "#4180FF"
-        for p in probabilities:
-            if p == max_probability:
-                colors.append(MAX_COLOR)
-            elif p > uniform_probability:
-                colors.append(HIGH_COLOR)
-            else:
-                colors.append(BASE_COLOR)
-
-        plt.bar(x_axis, probabilities, color=colors)
-        plt.plot(
-            [start - 0.5, end + 0.5],
-            [uniform_probability, uniform_probability],
-            "#FF0000",
-            label="Moyenne",
-            linewidth=0.5,
-        )
-        plt.title(f"{title}\nMean {self.mean():.2f} / STDev {self.stdev():.2f}")
-        plt.xlabel("Résultat")
-        plt.ylabel("Probabilité (%)")
-        plt.legend()
-        plt.show()
 
     def compute_probabilities(self) -> Dict[int, float]:
         return {
