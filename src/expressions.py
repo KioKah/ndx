@@ -143,7 +143,7 @@ class SubtractionOfExpressions(Expression):
 
     def __repr__(self):
         negative_repr = ", ".join(repr(expr) for expr in self.__negative)
-        return f"DivisionOfExpressions({repr(self.__positive)}, [{negative_repr}])"
+        return f"SubtractionOfExpressions({repr(self.__positive)}, [{negative_repr}])"
 
 
 class ProductOfExpressions(Expression):
@@ -354,28 +354,27 @@ class StringExpression:
     """NdX string expression
 
     expr = "2d6+1d4+1"
-    => d6 + d6 + d4 & shift by 1
-
-    -ndx = n reversed(dx) - n*(x+1)
-
-    expr = "1d6 - 1d4 + 2"
-    => d6 + reversed(d4) (==d4) & shift by 2-5 = -3
+    => repeat d6 twice + d4 + 1
 
     expr = "2(d4 + d6)"
-    => 2d4 + 2d6
+    => repeat (d4 + d6) twice
 
     expr = "2*(d4 + d6)"
-    => d4 + d6, dilate x2
+    => constant 2 multiplied by (d4 + d6)
 
     expr = "A(d4, d6)" or "D(d4, d6)"
     => d4 vs d6 keep highest for A, lowest for D
 
     expr = "1d{1, 2, 4, 5}"
     => 4-sided dice with values 1, 2, 4, 5 (uniform distribution)
+    => use WeightedExpressions even if weights are omitted (all = 1)
+
+    expr = "1d{1, 2, 4: 2, 5:2}"
+    => 4-sided dice with values 1, 2, 4, 5 but 4 and 5 are twice as likely
+    => use WeightedExpressions
 
     complex expressions:
     expr = "A(2d6, d{1:2,2,3,5,8}) * D(1d6, 4)d(1d2) - 40//8d[1,1]_7"
-    => 1 can be omitted for 1dx
     => {n}d{x} means n dices with x faces not n times a die with x faces
     => + and * are supported for <EXPR>operator<EXPR>
     => <EXPR>-<EXPR> is just <EXPR>+(-<EXPR>)
@@ -386,14 +385,7 @@ class StringExpression:
     => you can have more complex die d<EXPR>
     => you can even have EXPR inside custom/weighted die
     => you can have <EXPR>d<EXPR>
-    => order of operations is respected. For first to last evaluated :
-       (EXPR are evaluated left to right unless specified otherwise)
-        - <EXPR> in A or D
-        - <EXPR> ( <EXPR> )
-        - A(<EXPR>, <EXPR>, ...) or D(<EXPR>, <EXPR>, ...)
-        - <EXPR>d<EXPR>
-        - <EXPR>*<EXPR> or <EXPR>//{number}
-        - <EXPR>+<EXPR> or <EXPR>-<EXPR>
+    => Be careful with the order of operations, parentheses are allowed
     """
 
     def __init__(self, str_expr: str):

@@ -5,6 +5,28 @@ from math import gcd as math_gcd
 
 
 class CountArray:
+    """A class representing a count array.
+
+    The CountArray class provides methods and operations for working with count arrays,
+    which are lists of non-negative integers.
+    Work just like a 1-dimensional np.array, but without the integer limit.
+
+    Attributes:
+        __data (List[int]): The underlying data of the count array.
+        __size (int): The size of the count array.
+
+    Methods:
+        __init__(self, data: List[int]): Initializes a new instance of the CountArray class.
+        data(self) -> List[int]: Returns the underlying data of the count array.
+        size(self) -> int: Returns the size of the count array.
+        zeros(length: int) -> List[int]: Creates a count array filled with zeros.
+        ones(length: int) -> List[int]: Creates a count array filled with ones.
+        single(value: int) -> List[int]: Creates a count array with a single value.
+        reversed(self) -> CountArray: Returns a new count array with the elements reversed.
+        total(self) -> int: Returns the sum of all the values in the count array.
+        gcd(self) -> int: Returns the greatest common divisor of the values in the count array.
+    """
+
     def __init__(self, data: List[int]):
         # Checks
         if not isinstance(data, List):

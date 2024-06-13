@@ -172,3 +172,7 @@ if __name__ == "__main__":
     # )
     # r = e.evaluate_result()
     # MainPlot(r, title="2d6 - d10", signed=True, plot_uniform_distribution=False)
+
+    e = DieExpression(DieExpression(DieExpression((ConstantExpression(20)))))
+    r = e.evaluate_result()
+    MainPlot(r, title="ddd20")
