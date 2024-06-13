@@ -113,6 +113,39 @@ class SumOfExpressions(Expression):
         return f"SumOfExpressions([{expressions_repr}])"
 
 
+class SubtractionOfExpressions(Expression):
+    def __init__(self, positive: Expression, negative: List[Expression]):
+        # Checks
+        if not isinstance(positive, Expression):
+            raise TypeError("positive must be an Expression")
+        if not isinstance(negative, List):
+            raise TypeError("negative must be a List")
+        if not all(isinstance(expr, Expression) for expr in negative):
+            raise TypeError("negative must be a List of Expression")
+        if not len(negative) > 0:
+            raise ValueError("negative List must have at least 1 Expression")
+        # Init
+        self.__positive = positive
+        self.__negative = negative
+
+    def evaluate_result(self) -> Result:
+        return Result.subtraction(
+            self.__positive.evaluate_result(),
+            [expr.evaluate_result() for expr in self.__negative],
+        )
+
+    def __str__(self):
+        expressions_str = f") - ((".join(
+            str(expr) for expr in [self.__positive] + self.__negative
+        )
+        closing_parentheses = (len(self.__negative) - 1) * ")"
+        return f"({expressions_str}{closing_parentheses})"
+
+    def __repr__(self):
+        negative_repr = ", ".join(repr(expr) for expr in self.__negative)
+        return f"DivisionOfExpressions({repr(self.__positive)}, [{negative_repr}])"
+
+
 class ProductOfExpressions(Expression):
     def __init__(self, expressions: List[Expression]):
         # Checks

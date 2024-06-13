@@ -361,6 +361,27 @@ class Result:
         # Sub
         return self + (-other)
 
+    @staticmethod
+    def subtraction(positive: "Result", negative: List["Result"]) -> "Result":
+        """Calculates the subtraction of a list of Result objects.
+
+        Args:
+            `positive` (Result): The Result object to be divided.
+            `negative` (List[Result]): A list of Result objects to divide by in order.
+
+        Returns: (Result)
+            The subtraction of the Result objects.
+        """
+        # Checks
+        if not isinstance(positive, Result):
+            raise TypeError("numerator must be an Result")
+        if not isinstance(negative, List):
+            raise TypeError("negative must be a List")
+        if not all(isinstance(n, Result) for n in negative):
+            raise TypeError("negative must be a List of Result")
+        # Division
+        return positive - Result.sum(negative)
+
     def __mul__(self: "Result", other: "Result") -> "Result":
         # Checks
         if not isinstance(other, Result):
